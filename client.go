@@ -10,6 +10,14 @@ import (
 
 const defaultBaseURL = "https://api.sarvam.ai"
 
+type errorResponse struct {
+	Error struct {
+		Message string `json:"message"`
+		Type    string `json:"type"`
+		Code    string `json:"code"`
+	} `json:"error"`
+}
+
 type Client struct {
 	apiKey     string
 	baseURL    string
@@ -81,10 +89,14 @@ func (c *Client) do(
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf(
-			"sarvam: API returned status %d",
-			resp.StatusCode,
-		)
+		var apiErr errorResponse
+
+		_ = json.NewDecoder(resp.Body).Decode(&apiErr)
+
+		return &APIError{
+			StatusCode: resp.StatusCode,
+			Message:    apiErr.Error.Message,
+		}
 	}
 
 	if result == nil {

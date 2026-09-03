@@ -34,3 +34,8 @@ type Usage struct {
 	CompletionTokens int `json:"completion_tokens"`
 	TotalTokens      int `json:"total_tokens"`
 }
+
+const (
+	ModelSarvam105B              = "sarvam-105b"
+	ModelSarvam105BConversations = "sarvam-105b-conversations"
+)
