@@ -7,13 +7,18 @@ import (
 )
 
 type ChatService struct {
+	// Completions provides access to chat completion requests.
 	Completions *ChatCompletionService
 }
 
+// ChatCompletionService provides operations for the chat completions API.
 type ChatCompletionService struct {
 	client *Client
 }
 
+// Create sends a chat completion request and returns the generated response.
+// It returns a ValidationError when request fields are invalid and an APIError
+// when Sarvam rejects the request.
 func (s *ChatCompletionService) Create(
 	ctx context.Context,
 	request ChatCompletionRequest,

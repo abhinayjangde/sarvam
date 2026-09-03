@@ -11,9 +11,14 @@ import (
 )
 
 const (
-	defaultBaseURL                   = "https://api.sarvam.ai"
+	defaultBaseURL = "https://api.sarvam.ai"
+
+	// AuthModeSubscriptionKey authenticates requests with the
+	// api-subscription-key header.
 	AuthModeSubscriptionKey AuthMode = "subscription_key"
-	AuthModeBearer          AuthMode = "bearer"
+
+	// AuthModeBearer authenticates requests with the Authorization header.
+	AuthModeBearer AuthMode = "bearer"
 )
 
 type errorResponse struct {
@@ -24,25 +29,32 @@ type errorResponse struct {
 	} `json:"error"`
 }
 
+// Client communicates with the Sarvam AI API.
 type Client struct {
 	apiKey     string
 	baseURL    string
 	httpClient *http.Client
 	authMode   AuthMode
 
+	// Chat provides access to chat completion endpoints.
 	Chat *ChatService
 }
 
+// AuthMode identifies the authentication scheme used for API requests.
 type AuthMode string
 
+// ClientOption configures a Client.
 type ClientOption func(*Client)
 
+// WithBaseURL configures the client to use baseURL for API requests.
 func WithBaseURL(baseURL string) ClientOption {
 	return func(c *Client) {
 		c.baseURL = strings.Trim(baseURL, "/")
 	}
 }
 
+// WithHTTPClient configures the client to use httpClient for API requests.
+// A nil client is ignored.
 func WithHTTPClient(httpClient *http.Client) ClientOption {
 	return func(c *Client) {
 		if httpClient != nil {
@@ -51,26 +63,39 @@ func WithHTTPClient(httpClient *http.Client) ClientOption {
 	}
 }
 
+// WithBearerAuth configures the client to send the API key as a bearer token.
 func WithBearerAuth() ClientOption {
 	return func(c *Client) {
 		c.authMode = AuthModeBearer
 	}
 }
 
+// WithSubscriptionKeyAuth configures the client to send the API key using
+// Sarvam's api-subscription-key header.
 func WithSubscriptionKeyAuth() ClientOption {
 	return func(c *Client) {
 		c.authMode = AuthModeSubscriptionKey
 	}
 }
 
+// ClientOptions contains client configuration values.
+//
+// ClientOptions is provided as a configuration structure for callers that
+// prefer struct-based configuration. NewClient accepts ClientOption values.
 type ClientOptions struct {
-	APIKey     string
-	BaseURL    string
+	// APIKey is the Sarvam API key.
+	APIKey string
+	// BaseURL is the base URL used for API requests.
+	BaseURL string
+	// HTTPClient is the HTTP client used for API requests.
 	HTTPClient *http.Client
-	AuthMode   AuthMode
+	// AuthMode selects the authentication scheme.
+	AuthMode AuthMode
 }
 
-// new client function
+// NewClient creates a Sarvam API client using apiKey and the supplied options.
+// By default, it uses Sarvam's production API URL, http.DefaultClient, and
+// subscription-key authentication.
 func NewClient(apiKey string, options ...ClientOption) *Client {
 	client := &Client{
 		apiKey:     apiKey,
