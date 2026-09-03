@@ -5,10 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 )
 
-const defaultBaseURL = "https://api.sarvam.ai"
+const (
+	defaultBaseURL                   = "https://api.sarvam.ai"
+	AuthModeSubscriptionKey AuthMode = "subscription_key"
+	AuthModeBearer          AuthMode = "bearer"
+)
 
 type errorResponse struct {
 	Error struct {
@@ -22,21 +28,59 @@ type Client struct {
 	apiKey     string
 	baseURL    string
 	httpClient *http.Client
+	authMode   AuthMode
 
 	Chat *ChatService
+}
+
+type AuthMode string
+
+type ClientOption func(*Client)
+
+func WithBaseURL(baseURL string) ClientOption {
+	return func(c *Client) {
+		c.baseURL = strings.Trim(baseURL, "/")
+	}
+}
+
+func WithHTTPClient(httpClient *http.Client) ClientOption {
+	return func(c *Client) {
+		if httpClient != nil {
+			c.httpClient = httpClient
+		}
+	}
+}
+
+func WithBearerAuth() ClientOption {
+	return func(c *Client) {
+		c.authMode = AuthModeBearer
+	}
+}
+
+func WithSubscriptionKeyAuth() ClientOption {
+	return func(c *Client) {
+		c.authMode = AuthModeSubscriptionKey
+	}
 }
 
 type ClientOptions struct {
 	APIKey     string
 	BaseURL    string
 	HTTPClient *http.Client
+	AuthMode   AuthMode
 }
 
-func NewClient(apiKey string) *Client {
+// new client function
+func NewClient(apiKey string, options ...ClientOption) *Client {
 	client := &Client{
 		apiKey:     apiKey,
 		baseURL:    defaultBaseURL,
-		httpClient: &http.Client{},
+		httpClient: http.DefaultClient,
+		authMode:   AuthModeSubscriptionKey,
+	}
+
+	for _, option := range options {
+		option(client)
 	}
 
 	client.Chat = &ChatService{
@@ -55,7 +99,7 @@ func (c *Client) do(
 	body any,
 	result any,
 ) error {
-	var bodyReader *bytes.Reader
+	var reader io.Reader
 
 	if body != nil {
 		data, err := json.Marshal(body)
@@ -63,23 +107,33 @@ func (c *Client) do(
 			return fmt.Errorf("sarvam: marshal request: %w", err)
 		}
 
-		bodyReader = bytes.NewReader(data)
-	} else {
-		bodyReader = bytes.NewReader(nil)
+		reader = bytes.NewReader(data)
 	}
 
 	req, err := http.NewRequestWithContext(
 		ctx,
 		method,
 		c.baseURL+path,
-		bodyReader,
+		reader,
 	)
 	if err != nil {
 		return fmt.Errorf("sarvam: create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("api-subscription-key", c.apiKey)
+	switch c.authMode {
+	case AuthModeBearer:
+		req.Header.Set(
+			"Authorization",
+			"Bearer "+c.apiKey,
+		)
+
+	default:
+		req.Header.Set(
+			"api-subscription-key",
+			c.apiKey,
+		)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -88,15 +142,9 @@ func (c *Client) do(
 
 	defer resp.Body.Close()
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		var apiErr errorResponse
-
-		_ = json.NewDecoder(resp.Body).Decode(&apiErr)
-
-		return &APIError{
-			StatusCode: resp.StatusCode,
-			Message:    apiErr.Error.Message,
-		}
+	if resp.StatusCode < http.StatusOK ||
+		resp.StatusCode >= http.StatusMultipleChoices {
+		return newAPIError(resp)
 	}
 
 	if result == nil {
