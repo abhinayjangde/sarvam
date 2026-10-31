@@ -59,6 +59,40 @@ type ChatCompletionResponse struct {
 	SystemFingerprint *string `json:"system_fingerprint,omitempty"`
 }
 
+// ChatCompletionChunk is one event from a streamed chat completion.
+type ChatCompletionChunk struct {
+	// ID is the unique identifier for the completion.
+	ID string `json:"id"`
+	// Object identifies the response object type.
+	Object string `json:"object"`
+	// Created is the Unix timestamp when the completion was created.
+	Created int64 `json:"created"`
+	// Model is the model that generated the completion.
+	Model string `json:"model"`
+	// Choices contains the streamed completion deltas.
+	Choices []StreamChoice `json:"choices"`
+	// Usage contains token usage details, when provided.
+	Usage *Usage `json:"usage,omitempty"`
+}
+
+// StreamChoice is one streamed completion choice.
+type StreamChoice struct {
+	// Index is the zero-based choice index.
+	Index int `json:"index"`
+	// Delta contains the newly generated message content.
+	Delta Delta `json:"delta"`
+	// FinishReason explains why generation stopped, when provided.
+	FinishReason *string `json:"finish_reason"`
+}
+
+// Delta contains the incremental content of a streamed message.
+type Delta struct {
+	// Role identifies the message author, when provided.
+	Role string `json:"role,omitempty"`
+	// Content is the newly generated text.
+	Content string `json:"content,omitempty"`
+}
+
 // Choice is one generated completion choice.
 type Choice struct {
 	// Index is the zero-based choice index.

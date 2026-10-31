@@ -92,6 +92,38 @@ client := sarvam.NewClient(
 )
 ```
 
+## Streaming Responses
+
+Use `CreateStream` to receive completion chunks as Server-Sent Events:
+
+```go
+stream, err := client.Chat.Completions.CreateStream(
+	context.Background(),
+	sarvam.ChatCompletionRequest{
+		Model: sarvam.ModelSarvam105B,
+		Messages: []sarvam.Message{{
+			Role:    "user",
+			Content: "Explain goroutines in simple Hindi.",
+		}},
+	},
+)
+if err != nil {
+	log.Fatal(err)
+}
+defer stream.Close()
+
+for {
+	chunk, err := stream.Recv()
+	if errors.Is(err, io.EOF) {
+		break
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Print(chunk.Choices[0].Delta.Content)
+}
+```
+
 ## Bearer Authentication
 
 Sarvam also supports Bearer authentication:
@@ -159,7 +191,7 @@ Current support:
 * API error handling
 * Request validation
 
-Streaming support is planned for a future release.
+* Streaming chat completions using Server-Sent Events
 
 ## License
 
