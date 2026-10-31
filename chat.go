@@ -44,6 +44,30 @@ func (s *ChatCompletionService) Create(
 	return &response, nil
 }
 
+// CreateStream starts a server-sent event stream for a chat completion.
+// Call Recv to read chunks and Close when the stream is no longer needed.
+func (s *ChatCompletionService) CreateStream(
+	ctx context.Context,
+	request ChatCompletionRequest,
+) (*ChatCompletionStream, error) {
+	if err := request.validate(); err != nil {
+		return nil, err
+	}
+
+	request.Stream = true
+	response, err := s.client.doStream(
+		ctx,
+		"POST",
+		"/v1/chat/completions",
+		request,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return newChatCompletionStream(response), nil
+}
+
 func (r ChatCompletionRequest) validate() error {
 	if strings.TrimSpace(r.Model) == "" {
 		return &ValidationError{

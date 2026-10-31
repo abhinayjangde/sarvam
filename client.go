@@ -185,3 +185,47 @@ func (c *Client) do(
 
 	return nil
 }
+
+func (c *Client) doStream(
+	ctx context.Context,
+	method string,
+	path string,
+	body any,
+) (*http.Response, error) {
+	data, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("sarvam: marshal request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(
+		ctx,
+		method,
+		c.baseURL+path,
+		bytes.NewReader(data),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("sarvam: create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "text/event-stream")
+	switch c.authMode {
+	case AuthModeBearer:
+		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	default:
+		req.Header.Set("api-subscription-key", c.apiKey)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("sarvam: request failed: %w", err)
+	}
+
+	if resp.StatusCode < http.StatusOK ||
+		resp.StatusCode >= http.StatusMultipleChoices {
+		defer resp.Body.Close()
+		return nil, newAPIError(resp)
+	}
+
+	return resp, nil
+}
